@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The thought web — topic, time, and people</title>
+<style>
+  :root{
+    --paper:#FFFCF0;
+    --card:#FFFDF7;
+    --ink:#100F0F;
+    --muted:#6F6E69;
+    --faint:#E4E1D5;
+    --rule:#DAD7CB;
+    --blue:#205EA6;
+    --purple:#5E409D;
+    --purple-2:#8B7EC8;
+    --purple-bg:#EDE9F7;
+    --green:#66800B;
+    --green-2:#A0AF54;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Code","Roboto Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:var(--serif);line-height:1.6;
+    padding:clamp(20px,5vw,60px) clamp(16px,5vw,40px) 80px;
+  }
+  .wrap{max-width:980px;margin:0 auto}
+
+  h1{font-size:clamp(26px,5vw,40px);line-height:1.14;font-weight:600;letter-spacing:-.01em;margin:0 0 .5em;max-width:22ch}
+  .deck{font-size:clamp(16px,2.2vw,19px);color:var(--muted);max-width:62ch;margin:0 0 1.5em}
+  .deck b{color:var(--ink);font-weight:600}
+
+  .legend{display:flex;flex-wrap:wrap;gap:16px 22px;margin:0 0 14px;font-family:var(--sans);font-size:13px;color:var(--muted)}
+  .legend .item{display:flex;align-items:center;gap:9px}
+  .legend .swatch{width:26px;border-top-width:3px;border-top-style:solid;border-radius:2px}
+  .legend .topic{border-color:var(--blue)}
+  .legend .date{border-color:var(--purple-2)}
+  .legend .person{border-color:var(--green)}
+  .legend .sq{width:15px;height:15px;border-radius:4px}
+  .legend .day{background:var(--purple)}
+  .legend .who{background:var(--green)}
+  .legend b{color:var(--ink);font-weight:600}
+
+  .graph-box{
+    border:1px solid var(--rule);border-radius:12px;background:var(--card);
+    padding:8px 8px 4px;margin-bottom:14px;
+    box-shadow:0 10px 30px -22px rgba(16,15,15,.5);
+  }
+  svg.graph{width:100%;height:auto;display:block}
+
+  .edge{fill:none;stroke-width:2;stroke-linecap:round;opacity:0;transition:opacity .4s ease,stroke-width .2s ease}
+  .edge.topic{stroke:var(--blue)}
+  .edge.date{stroke:var(--purple-2)}
+  .edge.person{stroke:var(--green)}
+  .edge.shown{opacity:.5}
+  .edge.emph{opacity:1;stroke-width:3.4}
+  .edge.date.emph{stroke:var(--purple)}
+  @media (prefers-reduced-motion:no-preference){
+    .edge.reveal.emph{stroke-dasharray:900;animation:dash .85s ease forwards}
+    @keyframes dash{from{stroke-dashoffset:900}to{stroke-dashoffset:0}}
+  }
+  .edge.hot{opacity:1;stroke-width:3.4}
+
+  .node{cursor:default;transition:opacity .3s ease}
+  .node.dim{opacity:.22}
+  .node .box{transition:stroke .2s ease,stroke-width .2s ease,filter .2s ease}
+  .node.note .box{fill:var(--card);stroke:var(--rule);stroke-width:1.5}
+  .node.note .box.idea{fill:#FBFAF3}
+  .node.note .box.ever{fill:#F3F0FA;stroke:var(--purple-2);stroke-width:2}
+  .node.hub .box{fill:var(--purple);stroke:none}
+  .node.hub.person .box{fill:var(--green)}
+  .node .lbl{font-family:var(--sans);font-size:13px;fill:var(--ink);text-anchor:middle;dominant-baseline:middle}
+  .node.hub .lbl{font-family:var(--mono);font-size:13.5px;fill:var(--paper);font-weight:600}
+  .node.hub.person .lbl{font-family:var(--sans);font-size:14px}
+  .node .kind{font-family:var(--sans);font-size:10px;fill:var(--muted);text-anchor:middle}
+  .node.note .box.ever ~ .kind{fill:var(--purple)}
+  .node.emph .box{stroke:var(--purple);stroke-width:2.6}
+  .node.emph .box.ever{stroke:var(--purple);stroke-width:3}
+  .node.hub.emph .box{filter:drop-shadow(0 3px 10px rgba(94,64,157,.55))}
+  .node.hub.person.emph .box{filter:drop-shadow(0 3px 10px rgba(102,128,11,.5))}
+  .node.hot .box{stroke:var(--purple);stroke-width:2.6}
+  .node.hub.hot .box{filter:drop-shadow(0 3px 10px rgba(94,64,157,.55))}
+
+  .caption{border-left:3px solid var(--purple);padding:2px 0 2px 18px;margin:18px 0 4px;min-height:104px}
+  .caption h2{font-size:clamp(18px,3vw,22px);font-weight:600;margin:0 0 .35em;letter-spacing:-.01em}
+  .caption p{margin:0;max-width:66ch;font-size:16px;color:#2a2822}
+  .caption .ax{font-family:var(--sans);font-size:12px;color:var(--muted);display:inline-block;margin-bottom:.5em}
+  .caption .ax .b{color:var(--blue);font-weight:600}
+  .caption .ax .p{color:var(--purple);font-weight:600}
+  .caption .ax .g{color:var(--green);font-weight:600}
+
+  .controls{display:flex;align-items:center;gap:14px;margin-top:18px}
+  button.nav{font-family:var(--sans);font-size:14px;font-weight:500;border:1px solid var(--rule);background:var(--card);color:var(--ink);border-radius:8px;padding:10px 16px;cursor:pointer;transition:background .15s,border-color .15s,opacity .15s}
+  button.nav:hover:not(:disabled){border-color:var(--purple-2);background:#FBF9EF}
+  button.nav:disabled{opacity:.4;cursor:default}
+  button.nav.primary{background:var(--purple);color:var(--paper);border-color:var(--purple)}
+  button.nav.primary:hover:not(:disabled){background:#4a3283}
+  button.nav:focus-visible{outline:3px solid var(--purple-bg);outline-offset:2px}
+  .dots{display:flex;gap:7px;margin-left:auto;flex-wrap:wrap}
+  .dots .d{width:8px;height:8px;border-radius:50%;background:var(--faint);transition:background .2s,transform .2s}
+  .dots .d.on{background:var(--purple);transform:scale(1.25)}
+
+  .hint{font-family:var(--sans);font-size:12.5px;color:#A6A49B;margin:16px 0 0}
+  .hint b{color:var(--muted);font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>The thought web: topic, time, and people</h1>
+  <p class="deck">The same notes get woven together three ways at once &mdash; by <b>what they&rsquo;re about</b>, <b>when they happened</b>, and <b>who they involve</b>. Step through and watch a few weeks of a vault grow into a web you can trace from any direction.</p>
+
+  <div class="legend">
+    <span class="item"><span class="swatch topic"></span><b>Topic link</b>&nbsp;— note to note</span>
+    <span class="item"><span class="swatch date"></span><b>Date link</b>&nbsp;— note to its day</span>
+    <span class="item"><span class="swatch person"></span><b>Person link</b>&nbsp;— note to someone</span>
+    <span class="item"><span class="sq day"></span><b>Day hub</b></span>
+    <span class="item"><span class="sq who"></span><b>Person hub</b></span>
+  </div>
+
+  <div class="graph-box">
+    <svg class="graph" id="graph" viewBox="0 0 1060 660" role="img" aria-label="A growing graph of notes connected by topic, date, and person links">
+      <g id="edges"></g>
+      <g id="nodes"></g>
+    </svg>
+  </div>
+
+  <div class="caption">
+    <span class="ax" id="cap-ax"></span>
+    <h2 id="cap-title"></h2>
+    <p id="cap-body"></p>
+  </div>
+
+  <div class="controls">
+    <button class="nav" id="prev">Back</button>
+    <button class="nav primary" id="next">Next</button>
+    <div class="dots" id="dots"></div>
+  </div>
+
+  <p class="hint"><b>Try it:</b> hover any note, day, or person to light up everything it links to &mdash; that&rsquo;s what clicking into a hub feels like.</p>
+
+</div>
+
+<script>
+(function(){
+  var NS='http://www.w3.org/2000/svg';
+
+  var nodes = {
+    routine:  {x:210,y:120,type:'note',kind:'idea',lbl:['Morning routines','are scaffolding'],tag:'idea'},
+    habits:   {x:470,y:90, type:'note',kind:'ref', lbl:['Atomic Habits'],tag:'reference'},
+    ritual:   {x:650,y:175,type:'note',kind:'idea',lbl:['Small rituals','compound'],tag:'idea'},
+    evergreen:{x:910,y:275,type:'note',kind:'ever',lbl:['Ritual as a','design material'],tag:'evergreen'},
+    coffee:   {x:95, y:470,type:'note',kind:'ev',  lbl:['Coffee with Aisha'],tag:'journal'},
+    movie:    {x:380,y:450,type:'note',kind:'ref', lbl:['Perfect Days'],tag:'movie'},
+    fear:     {x:775,y:490,type:'note',kind:'ev',  lbl:['What Aisha said','about fear'],tag:'journal'},
+    d6:       {x:235,y:305,type:'hub',hue:'day',   lbl:['2025-01-06']},
+    d20:      {x:600,y:340,type:'hub',hue:'day',   lbl:['2025-01-20']},
+    dfeb:     {x:905,y:365,type:'hub',hue:'day',   lbl:['2025-02-03']},
+    aisha:    {x:430,y:600,type:'hub',hue:'person',lbl:['Aisha']}
+  };
+  var edges = [
+    {id:'t_rout_hab',a:'routine',  b:'habits',   kind:'topic'},
+    {id:'t_cof_mov', a:'coffee',   b:'movie',    kind:'topic'},
+    {id:'t_rout_mov',a:'routine',  b:'movie',    kind:'topic', reveal:true},
+    {id:'t_rit_rout',a:'ritual',   b:'routine',  kind:'topic'},
+    {id:'t_ever_rout',a:'evergreen',b:'routine', kind:'topic', reveal:true},
+    {id:'t_ever_rit', a:'evergreen',b:'ritual',  kind:'topic', reveal:true},
+    {id:'d_rout',    a:'routine',  b:'d6',   kind:'date'},
+    {id:'d_cof',     a:'coffee',   b:'d6',   kind:'date'},
+    {id:'d_mov',     a:'movie',    b:'d6',   kind:'date'},
+    {id:'d_rit',     a:'ritual',   b:'d20',  kind:'date'},
+    {id:'d_fear',    a:'fear',     b:'dfeb', kind:'date'},
+    {id:'d_ever',    a:'evergreen',b:'dfeb', kind:'date'},
+    {id:'p_cof',     a:'coffee',   b:'aisha',kind:'person'},
+    {id:'p_fear',    a:'fear',     b:'aisha',kind:'person'}
+  ];
+
+  var NW=158,NH=56,HW=150,HH=48,PW=120;
+
+  var edgeLayer=document.getElementById('edges');
+  var nodeLayer=document.getElementById('nodes');
+  var edgeEls={}, nodeEls={};
+
+  edges.forEach(function(e){
+    var A=nodes[e.a],B=nodes[e.b];
+    var p=document.createElementNS(NS,'path');
+    p.setAttribute('d','M '+A.x+' '+A.y+' L '+B.x+' '+B.y);
+    p.setAttribute('class','edge '+e.kind+(e.reveal?' reveal':''));
+    edgeLayer.appendChild(p);
+    edgeEls[e.id]=p;
+  });
+
+  Object.keys(nodes).forEach(function(id){
+    var n=nodes[id];
+    var isHub=n.type==='hub', isPerson=n.hue==='person';
+    var g=document.createElementNS(NS,'g');
+    g.setAttribute('class','node '+(isHub?'hub':'note')+(isPerson?' person':''));
+    var w=isHub?(isPerson?PW:HW):NW, h=isHub?HH:NH;
+    var r=document.createElementNS(NS,'rect');
+    r.setAttribute('x',n.x-w/2); r.setAttribute('y',n.y-h/2);
+    r.setAttribute('width',w); r.setAttribute('height',h);
+    r.setAttribute('rx',isHub?24:9);
+    r.setAttribute('class','box'+(n.kind==='idea'?' idea':'')+(n.kind==='ever'?' ever':''));
+    g.appendChild(r);
+
+    if(n.type==='note' && n.tag){
+      var k=document.createElementNS(NS,'text');
+      k.setAttribute('x',n.x); k.setAttribute('y',n.y-h/2+13);
+      k.setAttribute('class','kind'); k.textContent=n.tag;
+      g.appendChild(k);
+    }
+    var t=document.createElementNS(NS,'text');
+    t.setAttribute('x',n.x); t.setAttribute('class','lbl');
+    if(n.lbl.length===1){
+      t.setAttribute('y',isHub?n.y+1:n.y+6);
+      t.textContent=n.lbl[0];
+    } else {
+      t.setAttribute('y',n.y+2);
+      n.lbl.forEach(function(line,idx){
+        var ts=document.createElementNS(NS,'tspan');
+        ts.setAttribute('x',n.x); ts.setAttribute('dy',idx===0?'-2':'16');
+        ts.textContent=line; t.appendChild(ts);
+      });
+    }
+    g.appendChild(t);
+    nodeLayer.appendChild(g);
+    nodeEls[id]=g;
+  });
+
+  function incident(id){ return edges.filter(function(e){return e.a===id||e.b===id;}); }
+  Object.keys(nodeEls).forEach(function(id){
+    var g=nodeEls[id];
+    g.addEventListener('mouseenter',function(){
+      incident(id).forEach(function(e){
+        edgeEls[e.id].classList.add('hot');
+        nodeEls[e.a===id?e.b:e.a].classList.add('hot');
+      });
+      g.classList.add('hot');
+    });
+    g.addEventListener('mouseleave',function(){
+      Object.keys(edgeEls).forEach(function(k){edgeEls[k].classList.remove('hot');});
+      Object.keys(nodeEls).forEach(function(k){nodeEls[k].classList.remove('hot');});
+    });
+  });
+
+  var steps=[
+    {
+      ax:'<span class="b">Topic axis</span>',
+      title:'Linking related notes — what you already do',
+      body:'Blue links connect notes by what they\u2019re about. "Coffee with Aisha" links to Perfect Days because you mentioned the film; the routine idea links to Atomic Habits. Deliberate connections — and you can only make them for a relationship you already see.',
+      on:['routine','habits','coffee','movie'],
+      show:['t_rout_hab','t_cof_mov'],
+      emph:['t_rout_hab','t_cof_mov']
+    },
+    {
+      ax:'<span class="b">Topic axis</span> — its blind spot',
+      title:'You can\u2019t link what you can\u2019t see yet',
+      body:'When a fresh thought lands, you often don\u2019t yet know what it connects to. Right now "Morning routines are scaffolding" reaches only Atomic Habits. Any other relationship it has is invisible today — so topic links alone can never surface it.',
+      on:['routine','habits'],
+      show:['t_rout_hab'],
+      emph:['routine']
+    },
+    {
+      ax:'<span class="p">Time axis</span>',
+      title:'The date hub gathers the whole day',
+      body:'Every note also carries a date — autofilled, no decision needed. So Jan 6 quietly collects all three notes, even though an idea, a coffee, and a movie share no topic. The day catches everything you captured, including the thought that had nothing to link to.',
+      on:['routine','coffee','movie','d6'],
+      show:['t_rout_hab','t_cof_mov','d_rout','d_cof','d_mov'],
+      emph:['d6','d_rout','d_cof','d_mov']
+    },
+    {
+      ax:'Where the axes meet',
+      title:'The day reveals a connection you\u2019d have missed',
+      body:'Revisiting Jan 6, you notice the routine idea and Perfect Days sat on the same day — a film about finding meaning in daily ritual. It likely seeded the thought. So you draw a new topic link (this one). You could never have made it by topic-linking alone; the day put the two side by side. The time axis fed the topic axis.',
+      on:['routine','coffee','movie','d6'],
+      show:['t_rout_hab','t_cof_mov','d_rout','d_cof','d_mov','t_rout_mov'],
+      emph:['t_rout_mov','routine','movie']
+    },
+    {
+      ax:'<span class="b">Topic</span> + <span class="p">time</span>',
+      title:'Threading one idea to a later day',
+      body:'Two weeks on, a related thought: "Small rituals compound." It topic-links back to the routine idea (the chain of meaning) and date-links to Jan 20 (its moment). The web now spans days — follow blue to watch the idea evolve, follow purple to revisit the context each step grew from.',
+      on:['routine','habits','coffee','movie','ritual','d6','d20'],
+      show:['t_rout_hab','t_cof_mov','t_rout_mov','t_rit_rout','d_rout','d_cof','d_mov','d_rit'],
+      emph:['t_rit_rout','ritual','d20','d_rit']
+    },
+    {
+      ax:'<span class="g">Person axis</span>',
+      title:'People are hubs too — the timeline reaches Feb 3',
+      body:'A new day, a new note: "What Aisha said about fear." Aisha is a note as well, so both the Jan 6 coffee and this Feb 3 entry link to her (green). She becomes a hub that gathers every mention across the whole timeline — the exact same backlink trick as a day, on a different dimension. Places, books, and projects all work this way.',
+      on:['routine','habits','coffee','movie','ritual','fear','d6','d20','dfeb','aisha'],
+      show:['t_rout_hab','t_cof_mov','t_rout_mov','t_rit_rout','d_rout','d_cof','d_mov','d_rit','d_fear','p_cof','p_fear'],
+      emph:['aisha','p_cof','p_fear','dfeb','d_fear']
+    },
+    {
+      ax:'Distilling upward',
+      title:'Fragments rise into an evergreen note',
+      body:'During a review you realize the routine idea and the ritual idea are really one bigger idea. You write a higher-level note — "Ritual as a design material" — that links down to both fragments, pulling scattered captures up into refined thinking. It lands on its own day and joins the web, now reachable by meaning and by time.',
+      on:['routine','habits','coffee','movie','ritual','fear','evergreen','d6','d20','dfeb','aisha'],
+      show:['t_rout_hab','t_cof_mov','t_rout_mov','t_rit_rout','d_rout','d_cof','d_mov','d_rit','d_fear','p_cof','p_fear','t_ever_rout','t_ever_rit','d_ever'],
+      emph:['evergreen','t_ever_rout','t_ever_rit']
+    },
+    {
+      ax:'<span class="b">Topic</span> + <span class="p">time</span> + <span class="g">people</span>',
+      title:'The whole web',
+      body:'Step back. Blue threads meaning, purple threads time, green threads people, and evergreen notes crown the fragments. Every note is reachable three ways — by what it\u2019s about, when it happened, and who it involved. That redundancy means you can always find a thought again, and the crossings between axes are exactly where new ideas surface. Hover anything to trace it.',
+      on:['routine','habits','coffee','movie','ritual','fear','evergreen','d6','d20','dfeb','aisha'],
+      show:['t_rout_hab','t_cof_mov','t_rout_mov','t_rit_rout','t_ever_rout','t_ever_rit','d_rout','d_cof','d_mov','d_rit','d_fear','d_ever','p_cof','p_fear'],
+      emph:[]
+    }
+  ];
+
+  var i=0;
+  var capAx=document.getElementById('cap-ax'),
+      capTitle=document.getElementById('cap-title'),
+      capBody=document.getElementById('cap-body'),
+      prev=document.getElementById('prev'),
+      next=document.getElementById('next'),
+      dotsBox=document.getElementById('dots');
+
+  steps.forEach(function(){ var d=document.createElement('span'); d.className='d'; dotsBox.appendChild(d); });
+  var dots=dotsBox.querySelectorAll('.d');
+
+  function apply(idx){
+    var s=steps[idx];
+    Object.keys(nodeEls).forEach(function(id){
+      var g=nodeEls[id];
+      g.classList.toggle('dim', s.on.indexOf(id)===-1);
+      g.classList.toggle('emph', s.emph.indexOf(id)!==-1);
+    });
+    Object.keys(edgeEls).forEach(function(id){
+      var el=edgeEls[id];
+      el.classList.toggle('shown', s.show.indexOf(id)!==-1);
+      el.classList.toggle('emph', s.emph.indexOf(id)!==-1);
+    });
+    capAx.innerHTML=s.ax;
+    capTitle.textContent=s.title;
+    capBody.textContent=s.body;
+    prev.disabled=idx===0;
+    next.textContent=idx===steps.length-1?'Start over':'Next';
+    dots.forEach(function(d,k){ d.classList.toggle('on',k===idx); });
+  }
+
+  next.addEventListener('click',function(){ i=(i===steps.length-1)?0:i+1; apply(i); });
+  prev.addEventListener('click',function(){ if(i>0){ i--; apply(i); } });
+
+  apply(0);
+})();
+</script>
+</body>
+</html>
